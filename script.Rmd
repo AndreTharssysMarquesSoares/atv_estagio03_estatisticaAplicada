@@ -1,0 +1,289 @@
+Relatório de Estatistica Aplicada - 3° Estágio
+Alunos:
+
+André Tharssys Marques Soares
+Vinicius de Oliveira Porto - 123110505
+
+Questão 02
+Descreva a base de dados indicando o número de observações e as variáveis com os “names”, seus significados e as correspondentes unidades de medida
+
+```{r}
+# Carregar CSV no mesmo diretório do projeto
+dados <- read.csv("Indice de satisfação de clientes.csv", header = TRUE, sep = ",")
+```
+
+```{r}
+# Número de observações (linhas)
+n_obs <- nrow(dados)
+
+# Número de variáveis (colunas)
+n_vars <- ncol(dados)
+
+cat("A base tem", n_obs, "observações e", n_vars, "variáveis.\n")
+
+```
+
+```{r}
+# Criar tabela de descrição da base de dados
+descricao <- data.frame(
+  Variavel = c(
+    "tipo_servico",
+    "canal_atendimento",
+    "faixa_etaria",
+    "tempo_espera",
+    "qualidade_percebida",
+    "preco_pago",
+    "atendimento_resolutivo",
+    "nps",
+    "tempo_resposta",
+    "isc"
+  ),
+  Significado = c(
+    "Tipo de serviço contratado/prestado ao cliente",
+    "Meio de contato utilizado pelo cliente",
+    "Faixa de idade do cliente",
+    "Tempo esperado pelo cliente para ser atendido",
+    "Avaliação do cliente pelo atendimento recebido",
+    "Valor pago pelo cliente pelo serviço prestado",
+    "Se o atendimento resolveu ou não a questão do cliente",
+    "Índice de lealdade do cliente (probabilidade de recomendar)",
+    "Tempo que a empresa levou para atender o cliente",
+    "Indicador de satisfação geral do cliente"
+  ),
+  Unidade = c(
+    "Categoria",
+    "Categoria",
+    "Categoria ordenada",
+    "Minutos",
+    "Escala 0–10",
+    "Reais (R$)",
+    "Binário (Sim/Não)",
+    "Escala 0–10",
+    "Minutos",
+    "Percentual (%)"
+  ),
+  stringsAsFactors = FALSE
+)
+
+# Visualizar tabela
+descricao
+
+```
+
+Questão 03
+Apresente uma boa análise exploratória de dados sempre visando identificar possíveis ausências de dados, “outliers”, bem como responder às questões/objetivos da pesquisa. Sugira correções na base de dados, caso necessário;
+
+```{r}
+# Instalar (se ainda não tiver)
+install.packages(c("tidyverse", "skimr", "naniar"))
+
+# Carregar
+library(tidyverse)
+library(skimr)
+library(naniar)
+```
+
+```{r}
+# Estrutura da base
+str(dados)
+
+# Resumo estatístico geral
+skim(dados)  # fornece estatísticas por variável
+```
+
+```{r}
+# Função para limpar e converter
+limpa_numerico <- function(x) {
+  x <- as.character(x)            # garante que é texto
+  x <- gsub(",", ".", x)          # troca vírgula por ponto
+  as.numeric(x)                   # converte para número
+}
+
+# Lista de variáveis quantitativas
+num_vars <- c("tempo_espera", "qualidade_percebida", 
+              "preco_pago", "nps", 
+              "tempo_resposta", "isc")
+
+# Aplica em todas, independente da classe atual
+for (v in num_vars) {
+  dados[[v]] <- limpa_numerico(dados[[v]])
+}
+
+# Conferir resultado
+str(dados[num_vars])
+summary(dados[num_vars])
+```
+Outliers:
+
+```{r}
+# Função para detectar outliers
+detecta_outliers <- function(x) {
+  x <- na.omit(x)  # remove NAs
+  q1 <- quantile(x, 0.25)
+  q3 <- quantile(x, 0.75)
+  iqr <- q3 - q1
+  
+  lim_inf <- q1 - 1.5 * iqr
+  lim_sup <- q3 + 1.5 * iqr
+  
+  which(x < lim_inf | x > lim_sup)  # retorna índices dos outliers
+}
+
+# Lista de variáveis quantitativas
+num_vars <- c("tempo_espera", "qualidade_percebida", 
+              "preco_pago", "nps", 
+              "tempo_resposta", "isc")
+
+# Detectar outliers em cada variável
+outliers_lista <- lapply(num_vars, function(v) {
+  detecta_outliers(dados[[v]])
+})
+
+names(outliers_lista) <- num_vars
+
+# Mostrar resumo
+sapply(outliers_lista, length)
+
+```
+```{r}
+#Se quiser ver os valores que são outliers
+x <- dados$isc
+x[detecta_outliers(x)]
+```
+4. Desenvolva análises uni e bivariadas como; por exemplo; análises de correlação visando verificar o nível de associação entre cada variável explicativa e a variável resposta, além de possíveis problemas de multicolinearidade;
+
+Análise Univariada
+Vairáveis quantitativas
+```{r}
+library(ggplot2)
+
+num_vars <- c("tempo_espera", "qualidade_percebida", "preco_pago", "nps", "tempo_resposta", "isc")
+
+# Histogramas
+dados %>%
+  select(all_of(num_vars)) %>%
+  gather(var, valor) %>%
+  ggplot(aes(x = valor)) +
+  geom_histogram(fill = "steelblue", color = "white", bins = 30) +
+  facet_wrap(~var, scales = "free") +
+  theme_minimal()
+
+# Estatísticas descritivas
+summary(dados[num_vars])
+
+```
+
+Variáveis categóricas
+```{r}
+cat_vars <- c("tipo_servico", "canal_atendimento", "faixa_etaria", "atendimento_resolutivo")
+
+# Tabela de frequências e gráficos de barras
+for (v in cat_vars) {
+  print(table(dados[[v]], useNA = "ifany"))
+  
+  ggplot(dados, aes(x = v)) +
+    geom_bar(fill = "tomato") +
+    theme_minimal() +
+    ggtitle(paste("Distribuição de", v)) +
+    ylab("Frequência") +
+    xlab(v)
+}
+
+```
+Análise Bivariada
+
+Correlação entre variáveis quantitativas
+```{r}
+# Instala o pacote (apenas uma vez)
+install.packages("corrplot")
+
+# Carrega o pacote
+library(corrplot)
+
+```
+
+```{r}
+# Matriz de correlação
+cor_matrix <- cor(dados[num_vars], use = "pairwise.complete.obs")
+cor_matrix
+
+# Visualização com heatmap
+library(corrplot)
+corrplot(cor_matrix, method = "color", type = "upper", addCoef.col = "black")
+
+```
+
+Relação entre quantitativas e categóricas
+```{r}
+# Boxplot de isc por categoria
+for (v in cat_vars) {
+  ggplot(dados, aes_string(x = v, y = "isc")) +
+    geom_boxplot(fill = "lightgreen") +
+    theme_minimal() +
+    ggtitle(paste("ISC por", v))
+}
+
+```
+
+Verificando multicolinearidade
+```{r}
+# Instala o pacote (apenas uma vez)
+install.packages("car")
+library(car)
+
+# Exemplo: regressão simples para calcular VIF
+modelo <- lm(isc ~ tempo_espera + qualidade_percebida + preco_pago + nps + tempo_resposta, data = dados)
+vif(modelo)
+
+```
+
+5. Modelo inicial
+
+Preparar o modelo
+
+```{r}
+# Categóricas
+dados$tipo_servico <- factor(dados$tipo_servico, levels = c("Básico", "Intermediário", "Premium"))
+dados$canal_atendimento <- factor(dados$canal_atendimento)
+dados$faixa_etaria <- factor(dados$faixa_etaria, levels = c("18-25","26-35","36-50","51+"), ordered = TRUE)
+dados$atendimento_resolutivo <- factor(dados$atendimento_resolutivo, levels = c("Não","Sim"))
+```
+
+Ajustar o modelo incial
+```{r}
+# Modelo completo com todas as variáveis explicativas
+modelo_inicial <- lm(isc ~ tempo_espera + qualidade_percebida + preco_pago + nps + tempo_resposta +
+                      tipo_servico + canal_atendimento + faixa_etaria + atendimento_resolutivo,
+                      data = dados)
+
+# Resumo do modelo
+summary(modelo_inicial)
+
+```
+Resíduos
+```{r}
+# Gráfico de resíduos
+par(mfrow = c(2,2))
+plot(modelo_inicial)
+
+```
+
+6. Selecionando o melhor modelo
+
+```{r}
+# Modelo completo
+modelo_completo <- lm(isc ~ tempo_espera + qualidade_percebida + preco_pago + nps + tempo_resposta +
+                        tipo_servico + canal_atendimento + faixa_etaria + atendimento_resolutivo,
+                        data = dados)
+
+# Stepwise backward selection usando AIC
+modelo_step <- step(modelo_completo, direction = "both", trace = TRUE)
+
+# Resumo do modelo final
+summary(modelo_step)
+
+# Comparar AIC
+AIC(modelo_completo)
+AIC(modelo_step)
+```
+
