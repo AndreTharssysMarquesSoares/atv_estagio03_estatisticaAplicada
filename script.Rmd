@@ -1,7 +1,7 @@
 Relatório de Estatistica Aplicada - 3° Estágio
 Alunos:
 
-André Tharssys Marques Soares
+André Tharssys Marques Soares - 123110543
 Vinicius de Oliveira Porto - 123110505
 
 Questão 02
@@ -419,5 +419,6 @@ h = 1: embora a média seja 57,8%, um cliente individual pode apresentar ISC ent
 Mostra que há alguma variação natural entre clientes, mas ainda mantendo satisfação moderada.
 
 h = 2: a faixa é muito ampla (-10,4% a 7,95%), indicando que clientes individuais podem variar muito, mas, em média, a satisfação é muito baixa ou negativa.
+
 
 
