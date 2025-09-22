@@ -286,4 +286,138 @@ summary(modelo_step)
 AIC(modelo_completo)
 AIC(modelo_step)
 ```
+7.  Sobre o modelo selecionado, verifique se os pressupostos do MRLM são atendidos e, caso um ou mais não seja atendido, sugira e ou resolva a(s) violação(ões) de suposição(ões) encontrada(s):
+
+Verificação dos pressupostos do MRLM
+
+```{r}
+# Resíduos x Valores Ajustados 
+# Avaliação da linearidade e da homocedasticidade
+# Esperamos uma nuvem de pontos aleatória, sem padrão
+
+plot(modelo_step, which = 1)
+```
+
+```{r}
+# Verificação da normalidade dos resíduos
+# Esperamos pontos proximos a reta
+
+plot(modelo_step, which = 2)
+```
+
+```{r}
+# Teste de Shapiro-Wilk
+# Verificação se os residuos seguem a distribuição norma
+# Hiposteses:
+# H0: resíduos seguem a distribuição normal
+# H1: resíduos não seuem a distribuição normal
+
+shapiro.test(residuals(modelo_step))
+```
+Como o valor p > 0,05, é aceitável dizer que a distribuição dos resíduos comporta-se segundo uma distribuição normal.
+
+```{r}
+# Outliers nos residuos
+# Na situação em que a distribuição dos resíduos padronizados comporta-se como uma distribuição normal, espera-se que seus valores ocorram entre -3 e 3
+
+residuos_padronizados <- rstandard(modelo_step)
+
+summary(residuos_padronizados)
+
+```
+Como min e max ultrapassam os limites de -3 e 3, temos outliers. Isso indica violação da suposição de normalidade dos resíduos
+
+Para resolver essa violação, sugerimos dentificar as observações com resíduos extremos usando which(abs(residuos_padronizados) > 3) e avaliar se correspondem a erros ou casos especiais.Considerar transformações na variável resposta (por exemplo, logaritmo ou raiz quadrada) para reduzir a influência dos outliers. Caso os outliers sejam legítimos, utilizar métodos de regressão robusta, como rlm() do pacote MASS, que minimizam o impacto desses pontos extremos na estimação do modelo.”
+
+```{r}
+#Importanto modulo
+install.packages("lmtest")
+library(lmtest)
+```
+
+```{r}
+# Teste de Breusch-Pagan
+# Verificação da homocedasticidade
+# Hipoteses:
+# H0: Variância dos resíduos é constante
+# H1: Variância dos resíduos não é constante
+
+bptest(modelo_step)
+```
+Como o valor p > 0,05, então aceita-se a hipótese de homocedastidade dos erros do modelo.
+
+```{r}
+# VIF
+# Verificação da multicolinearidade
+# Valores entre 5 e 10 possuem multilinearidade moderada, e maiores que 10 multilinearidade seria
+
+vif(modelo_step)
+```
+tempo_espera: sem problemas de multilinearidade
+qualidade_percebida: correlação moderada
+preco_pago: correlação moderada
+nps: sem problemas de multilinearidade
+tempo_resposta: sem problemas de multilinearidade
+tipo_servico: sem problemas de multilinearidade
+atendimento_resolutivo: sem problemas de multilinearidade
+
+A análise do VIF mostrou que as variáveis qualidade_percebida e preco_pago apresentaram valores elevados (GVIF^(1/2Df) ≈ 2,55), indicando correlação moderada. Entretanto, como os valores permanecem abaixo do limiar crítico de 5, não há evidência de multicolinearidade severa que comprometa a estabilidade do modelo.
+
+```{r}
+# Teste de Durbin-Watson
+# Verificação da independência dos resíduos
+# Hipoteses:
+# H0: resíduos são independentes (SEM autocorrelação)
+# H1: resíduos não são independentes (COM autocorrelação)
+
+dwtest(modelo_step)
+```
+Como valor p > 0,05, aceita-se que a autorrelação é zero e assim os resíduos podem ser aceitos como independentes.
+
+O modelo ajustado atende satisfatoriamente aos pressupostos de regressão linear, embora alguns outliers nos resíduos padronizados indiquem pequenas violações da normalidade. Ainda assim, o modelo é estatisticamente adequado para analisar e interpretar os efeitos das variáveis explicativas sobre a variável resposta, podendo-se considerar ajustes ou transformações se os outliers forem relevantes.
+
+ 8. Sobre o modelo selecionado e com os pressupostos validados, após apresentar 2 (dois) conjuntos de valores para as variáveis explicativas, xh = (xh1,...,xhk),h = 1, 2: 
+ 
+```{r}
+xh <- data.frame(
+  tempo_espera = c(10, 25),           # minutos
+  qualidade_percebida = c(8, 6),      # escala 0-10
+  preco_pago = c(100, 50),            # R$
+  nps = c(9, 5),                      # escala 0-10
+  tempo_resposta = c(15, 30),         # minutos
+  tipo_servico = factor(c("Premium","Básico"), levels = c("Básico", "Intermediário", "Premium")),
+  canal_atendimento = factor(c("Telefone","Online"), levels = levels(dados$canal_atendimento)),
+  faixa_etaria = factor(c("26-35","51+"), levels = c("18-25","26-35","36-50","51+"), ordered = TRUE),
+  atendimento_resolutivo = factor(c("Sim","Não"), levels = c("Não","Sim"))
+)
+```
+ 
+ 
+ a-)  Apresente as correspondentes previsões pontuais e intervalos de confiança para os valores médios esperados/previstos da variável resposta, E(Yh|xh),h = 1,2. Interprete de forma prática.
+
+```{r}
+# Previsão do valor médio esperado com intervalo de confiança de 95%
+previsoes <- predict(modelo_step, newdata = xh, interval = "confidence", level = 0.95)
+previsoes
+```
+h = 1 (cliente 1, características: Premium, atendimento rápido, boa qualidade):
+  O valor médio esperado do ISC é 57,8%. O intervalo de confiança de 95% indica que, para clientes com essas características, a média real do ISC está provavelmente entre 55,3% e 60,3%. O atendimento e serviço para este cliente médio tendem a gerar uma satisfação moderada a boa.
+
+h = 2 (cliente 2, características: Básico, tempo de espera maior, qualidade menor):
+  O valor médio esperado do ISC é negativo (-1,23%), o que indica que, segundo o modelo, clientes com essas características tendem a ter satisfação muito baixa ou insatisfação. O intervalo de confiança de -6,07% a 3,62% reforça que a média esperada é próxima de zero ou negativa, confirmando insatisfação média.
+
+b-) De maneira análoga, para os valores de xh,h = 1,2 adotados, apresente as previsões pontuais para as 2 (duas) observações da variável resposta, Yh,h = 1,2, além dos intervalos de predição correspondentes. Interprete de forma prática.
+
+```{r}
+previsoes_pred <- predict(modelo_step, newdata = xh, interval = "prediction", level = 0.95)
+previsoes_pred
+```
+Consideramos a variabilidade individual de ISC para um novo cliente com as mesmas características.
+
+h = 1: embora a média seja 57,8%, um cliente individual pode apresentar ISC entre 49,6% e 66,0%.
+
+Mostra que há alguma variação natural entre clientes, mas ainda mantendo satisfação moderada.
+
+h = 2: a faixa é muito ampla (-10,4% a 7,95%), indicando que clientes individuais podem variar muito, mas, em média, a satisfação é muito baixa ou negativa.
+
 
